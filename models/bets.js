@@ -10,3 +10,5 @@ const betSchema = new mongoose.Schema({
         required: true
     }
 })
+
+module.exports = mongoose.model('daddyBet', betSchema)

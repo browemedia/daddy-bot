@@ -54,7 +54,7 @@ var tmi = require("tmi.js");
 var twitchclientid = process.env.TWITCH_CLIENTID;
 var twitchuser = process.env.TWITCH_USER;
 var twitchpass = process.env.TWITCH_PASS;
-const twitchchan = process.env.TWITCH_CHANNEL;
+const twitchchan = ['optiquest21'];
 
 var options = {
     options: {
@@ -68,7 +68,7 @@ var options = {
         username: twitchuser,
         password: twitchpass
     },
-    channels: [twitchchan]
+    channels: twitchchan,
 };
 
 const botclient = new tmi.client(options);
@@ -78,7 +78,80 @@ botclient.connect();
 
 //Bot says hello on connect
 botclient.on('connected', (address, port) => {
-  botclient.say(twitchchan, `I'm ready to collect Daddy bets!`)
+  botclient.say(twitchchan[0], `Hi chat! It is currently ` + Date())
+});
+
+
+// Betting Status
+const daddyBetStatus = require('./models/betStatus')
+botclient.on('chat', (channel, userstate, message, self) => {
+  if(message === '!createbetstatus' && userstate.username === 'optiquest21') {
+    var newBetStatus = new daddyBetStatus({name: 'Current Status', status:false});
+    newBetStatus.save();
+    botclient.say(twitchchan[0], 'New Bet document has been created')
+    console.log('New Bet document has been created')
+  }; 
+  if(message === '!deletebetstatus' && userstate.username === 'optiquest21') {
+    try {
+      daddyBetStatus.deleteMany({}, function (err) {
+        if(err){
+          console.error(err);
+        };
+      });
+      botclient.say(twitchchan[0], 'Bet document has been deleted')
+      console.log("Bet document has been deleted")
+    } catch (err) {
+      console.error(err)      
+    };
+  };
+  if(message === '!openbets' && userstate.username === 'optiquest21') {
+    var id = "5d0840a3ae79bcd7db92893d";
+    daddyBetStatus.findById(id)
+      .exec()
+      .then(doc => {
+        if(doc.status != true) {
+          daddyBetStatus.updateOne({ _id: id }, { $set: {status: true}})
+          .exec()
+          .then(result => {
+            console.log(result);
+            console.log(doc.status);
+            botclient.say(twitchchan[0], 'Bets are now open!');
+          })
+          .catch(err => console.error(err))
+        } else {
+          botclient.say(twitchchan[0], 'Bets are already Open');
+        };
+        console.log(doc.status);
+      })
+      .catch(err => console.error(err));
+  }; 
+  if(message === '!closebets' && userstate.username === 'optiquest21') {
+    var id = "5d0840a3ae79bcd7db92893d";
+    daddyBetStatus.findById(id)
+      .exec()
+      .then(doc => {
+        if(doc.status != false) {
+          daddyBetStatus.updateOne({ _id: id }, { $set: {status: false}})
+          .exec()
+          .then(result => {
+            console.log(result);
+            console.log(doc.status);
+            botclient.say(twitchchan[0], 'Bets are now closed!');
+          })
+          .catch(err => console.error(err))
+        } else {
+          botclient.say(twitchchan[0], 'Bets are already Closed');
+        };
+      })
+      .catch(err => console.error(err));
+    };
+  if(message === '!betstatus') {
+    if (betStatus === true) {
+      botclient.say(twitchchan[0], 'Bets are open!')
+    } else {
+      botclient.say(twitchchan[0], 'Bets are closed')
+    };
+  };  
 });
 
 
@@ -87,13 +160,14 @@ const daddyBet = require('./models/bets')
 botclient.on('chat', (channel, userstate, message, self) => {
   var message = message.trim().split(" ");
   if (message[0] === '!daddy') {
-    try {var bet = new daddyBet ({ user: userstate.username, bet: message[1] });
-    bet.save();
+    try {
+      var bet = new daddyBet ({ user: userstate.username, bet: message[1] });
+      bet.save();
+      botclient.say(twitchchan[0], '@' + userstate.username + ' You have bet for ' + message[1] + ' daddies!');
+      console.log('Added ' + userstate.username + `'s bet`);
     } catch (err) {
       console.error(err)
     };
-    botclient.say(twitchchan, '@' + userstate.username + ' You have bet for ' + message[1] + ' daddies!');
-    console.log('Added ' + userstate.username + `'s bet`);
   }
 });
 
@@ -106,7 +180,7 @@ botclient.on('chat', (channel, userstate, message, self) => {
           console.error(err);
         };
       });
-      botclient.say(twitchchan, 'Bets have been reset')
+      botclient.say(twitchchan[0], 'Bets have been reset')
       console.log("Bets have been reset")
     } catch (err) {
       console.error(err)      
