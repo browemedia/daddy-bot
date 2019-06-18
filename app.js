@@ -2,11 +2,12 @@ if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config()
 }
 
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+const fs = require("fs");
+const createError = require('http-errors');
+const express = require('express');
+const path = require('path');
+const cookieParser = require('cookie-parser');
+const logger = require('morgan');
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
@@ -82,14 +83,17 @@ botclient.on('connected', (address, port) => {
 });
 
 
-// Betting Status
+// Daddy bets
 const daddyBetStatus = require('./models/betStatus')
 botclient.on('chat', (channel, userstate, message, self) => {
   if(message === '!createbetstatus' && userstate.username === 'optiquest21') {
     var newBetStatus = new daddyBetStatus({name: 'Current Status', status:false});
-    newBetStatus.save();
-    botclient.say(twitchchan[0], 'New Bet document has been created')
-    console.log('New Bet document has been created')
+    newBetStatus.save()
+    .then(doc => {
+      botclient.say(twitchchan[0], 'New Bet document has been created')
+      console.log('New Bet document has been created')
+    })
+    .catch(err => console.error(err));
   }; 
   if(message === '!deletebetstatus' && userstate.username === 'optiquest21') {
     try {
@@ -104,34 +108,36 @@ botclient.on('chat', (channel, userstate, message, self) => {
       console.error(err)      
     };
   };
+
+  // Open Bets
   if(message === '!openbets' && userstate.username === 'optiquest21') {
-    var id = "5d0840a3ae79bcd7db92893d";
-    daddyBetStatus.findById(id)
+    daddyBetStatus.findOne({})
       .exec()
       .then(doc => {
         if(doc.status != true) {
-          daddyBetStatus.updateOne({ _id: id }, { $set: {status: true}})
+          daddyBetStatus.updateOne({ _id: doc._id }, { $set: {status: true}})
           .exec()
           .then(result => {
             console.log(result);
             console.log(doc.status);
             botclient.say(twitchchan[0], 'Bets are now open!');
           })
-          .catch(err => console.error(err))
+          .catch(err => console.error(err));
         } else {
           botclient.say(twitchchan[0], 'Bets are already Open');
         };
         console.log(doc.status);
       })
       .catch(err => console.error(err));
-  }; 
+  };
+
+  // Close Bets
   if(message === '!closebets' && userstate.username === 'optiquest21') {
-    var id = "5d0840a3ae79bcd7db92893d";
-    daddyBetStatus.findById(id)
+    daddyBetStatus.findOne({})
       .exec()
       .then(doc => {
         if(doc.status != false) {
-          daddyBetStatus.updateOne({ _id: id }, { $set: {status: false}})
+          daddyBetStatus.updateOne({ _id: doc._id }, { $set: {status: false}})
           .exec()
           .then(result => {
             console.log(result);
@@ -145,12 +151,18 @@ botclient.on('chat', (channel, userstate, message, self) => {
       })
       .catch(err => console.error(err));
     };
+
+  // Bet Status
   if(message === '!betstatus') {
-    if (betStatus === true) {
-      botclient.say(twitchchan[0], 'Bets are open!')
-    } else {
-      botclient.say(twitchchan[0], 'Bets are closed')
-    };
+    daddyBetStatus.findOne({})
+    .then(doc => {
+      if(doc.status === true) {
+        botclient.say(twitchchan[0], 'Bets are open!')
+      } else {
+        botclient.say(twitchchan[0], 'Bets are closed!')
+      }
+    })
+    .catch(err => console.error(err));
   };  
 });
 
@@ -160,14 +172,49 @@ const daddyBet = require('./models/bets')
 botclient.on('chat', (channel, userstate, message, self) => {
   var message = message.trim().split(" ");
   if (message[0] === '!daddy') {
-    try {
-      var bet = new daddyBet ({ user: userstate.username, bet: message[1] });
-      bet.save();
-      botclient.say(twitchchan[0], '@' + userstate.username + ' You have bet for ' + message[1] + ' daddies!');
-      console.log('Added ' + userstate.username + `'s bet`);
-    } catch (err) {
-      console.error(err)
-    };
+    // WITH COUNT CHECK
+    daddyBet.countDocuments({"user":userstate.username})
+    .then(count => {
+      if(count === 0) {
+        console.log(count);
+        daddyBetStatus.findOne({})
+        .then(doc => {
+          if(doc.status != false) {
+            try {
+              let bet = new daddyBet ({ user: userstate.username, bet: message[1] });
+              bet.save();
+              botclient.say(twitchchan[0], '@' + userstate.username + ' You have bet for ' + message[1] + ' daddies!');
+              console.log('Added ' + userstate.username + `'s bet`);
+            } catch (err) {
+              console.error(err)
+            };
+          } else {
+            botclient.say(twitchchan[0], '@' + userstate.username + ' Betting has not started')
+          };
+        })
+        .catch(err => console.error(err));
+      } else {
+        botclient.say(twitchchan[0], '@' + userstate.username + ' You have already placed a bet')
+      }
+    })
+    .catch(err => console.error(err));
+    // WITHOUT COUNT CHECK
+    // daddyBetStatus.findOne({})
+    // .then(doc => {
+    //   if(doc.status != false) {
+    //     try {
+    //       let bet = new daddyBet ({ user: userstate.username, bet: message[1] });
+    //       bet.save();
+    //       botclient.say(twitchchan[0], '@' + userstate.username + ' You have bet for ' + message[1] + ' daddies!');
+    //       console.log('Added ' + userstate.username + `'s bet`);
+    //     } catch (err) {
+    //       console.error(err)
+    //     };
+    //   } else {
+    //     botclient.say(twitchchan[0], userstate.username + ' Betting has not started')
+    //   };
+    // })
+    // .catch(err => console.error(error));
   }
 });
 
@@ -187,5 +234,20 @@ botclient.on('chat', (channel, userstate, message, self) => {
     };
   }
 });
+
+// botclient.on('chat', (channel, userstate, message, self) => {
+//   if (message === '!test') {
+//     daddyBet.countDocuments({"user":userstate.username})
+//     .then(count => {
+//       if (count != 0) {
+//         console.log(`There are`)
+//       } else {
+//         console.log(`I'm not running`)
+//       }
+//       console.log(count)
+//     })
+//     .catch(err => console.error(err));
+//   };
+// });
 
 module.exports = app;
