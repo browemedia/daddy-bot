@@ -167,7 +167,7 @@ botclient.on('chat', (channel, userstate, message, self) => {
 });
 
 
-// Collect Daddy Bets
+// Daddy Bets
 const daddyBet = require('./models/bets')
 botclient.on('chat', (channel, userstate, message, self) => {
   var message = message.trim().split(" ");
@@ -215,6 +215,27 @@ botclient.on('chat', (channel, userstate, message, self) => {
     //   };
     // })
     // .catch(err => console.error(error));
+  };
+
+  //Announce Winners
+  if(message[0] === '!winners'){
+    daddyBetStatus.findOne({})
+    .then(doc => {
+      if(doc.status === false) {
+        daddyBet.find({"bet":message[1]}, 'user')
+        .distinct('user')
+        .then(winners => {
+          // let bets = JSON.parse(bets)
+          var winners = winners.join(' @');
+          botclient.say(twitchchan[0], 'The winners are: @' + winners)
+          console.log('@' + winners)
+        })
+        .catch(err => console.error(err));
+      } else {
+        botclient.say(twitchchan[0], 'Bets have not been closed!')
+      }
+    })
+    .catch(err => console.error(err));
   }
 });
 
